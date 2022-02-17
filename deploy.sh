@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-
+echo "ccccc"
 set -e
 
 git add .
