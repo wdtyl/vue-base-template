@@ -97,8 +97,12 @@ vue-base-template
 │   │   interception.js     // 路由拦截器
 │   │   main.js             // 入口文件
 ```
-
-
+## sh文件执行的三种方式
+- 1. /xxx/xx/test.sh 或 ./test.sh, 要求sh文件必须有可执行权限，可以用命令 chmod a+x test.sh来添加
+- 2. 用bash或sh来执行
+bash test.sh 或 sh test.sh
+- 3. 用source 或 . 来执行
+source test.sh 或 . test.sh 这样的一大特点是，在本shell执行，前面的方式都是在本shell的子shell中执行，不能获取sh文件中的变量
 ## Build Setup
 
 ``` bash
