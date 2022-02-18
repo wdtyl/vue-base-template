@@ -1,7 +1,7 @@
 /*
  * @Author: etongfu
  * @Email: 13583254085@163.com
- * @Version: 
+ * @Version:
  * @Date: 2019-05-25 13:43:58
  * @LastEditors: etongfu
  * @LastEditTime: 2019-07-12 10:44:03
@@ -14,9 +14,9 @@ const path = require('path')
 const ora = require('ora')
 const zipper = require('zip-local')
 const shell = require('shelljs')
-const chalk = require('chalk')
-const inquirer = require('inquirer')
-const node_ssh = require('node-ssh')
+const chalk = require('chalk') //使输出多样化
+const inquirer = require('inquirer') //交互式命令美化工具
+const node_ssh = require('node-ssh') //轻量级自动化部署
 const CONFIG = require('../config/deploy.config')
 const Backup = require('./backup')
 const { Notify } = require('./util')
@@ -38,15 +38,18 @@ const compileDist = async () => {
   successLog('编译完成')
 }
 // ********* 压缩dist 文件夹 *********
-const zipDist =  async () => {
+const zipDist = async () => {
   try {
-    if(fs.existsSync(distZipPath)) {
+    if (fs.existsSync(distZipPath)) {
       defaultLog('dist.zip已经存在, 即将删除压缩包')
       fs.unlinkSync(distZipPath)
     } else {
       defaultLog('即将开始压缩zip文件')
     }
-    await zipper.sync.zip(distDir).compress().save(distZipPath);
+    await zipper.sync
+      .zip(distDir)
+      .compress()
+      .save(distZipPath)
     successLog('文件夹压缩成功')
   } catch (error) {
     errorLog(error)
@@ -68,17 +71,17 @@ const connectSSh = async () => {
     successLog('SSH 连接成功')
   } catch (error) {
     errorLog(err)
-    errorLog('SSH 连接失败');
+    errorLog('SSH 连接失败')
   }
 }
 // ********* 执行清空线上文件夹指令 *********
-const runCommond = async (commond) => {
-  const result = await SSH.exec(commond,[], {cwd: config.PATH})
+const runCommond = async commond => {
+  const result = await SSH.exec(commond, [], { cwd: config.PATH })
   defaultLog(result)
 }
 const commonds = [`ls`, `rm -rf *`]
 // ********* 执行清空线上文件夹指令 *********
-const runBeforeCommand = async () =>{
+const runBeforeCommand = async () => {
   for (let i = 0; i < commonds.length; i++) {
     await runCommond(commonds[i])
   }
@@ -94,7 +97,7 @@ const uploadZipBySSH = async () => {
   try {
     await SSH.putFile(distZipPath, config.PATH + '/dist.zip')
     successLog('完成上传')
-    spinner.text = "完成上传, 开始解压"
+    spinner.text = '完成上传, 开始解压'
     await runCommond('unzip ./dist.zip')
   } catch (error) {
     errorLog(error)
@@ -105,33 +108,45 @@ const uploadZipBySSH = async () => {
 // ********* 发布程序 *********
 /**
  * 通过配置文件检查必要部分
- * @param {*dev/prod} env 
- * @param {*} config 
+ * @param {*dev/prod} env
+ * @param {*} config
  */
 const checkByConfig = (env, config = {}) => {
   const errors = new Map([
-    ['SERVER_PATH',  () => {
-      // 预留其他校验
-      return config.SERVER_PATH == '' ? false : true
-    }],
-    ['SSH_USER',  () => {
-      // 预留其他校验
-      return config.SSH_USER == '' ? false : true
-    }],
-    ['SSH_KEY',  () => {
-      // 预留其他校验
-      return config.SSH_KEY == '' ? false : true
-    }],
-    ['SSH_KEY',  () => {
-      // 预留其他校验
-      return config.SSH_KEY == '' ? false : true
-    }]
+    [
+      'SERVER_PATH',
+      () => {
+        // 预留其他校验
+        return config.SERVER_PATH == '' ? false : true
+      }
+    ],
+    [
+      'SSH_USER',
+      () => {
+        // 预留其他校验
+        return config.SSH_USER == '' ? false : true
+      }
+    ],
+    [
+      'SSH_KEY',
+      () => {
+        // 预留其他校验
+        return config.SSH_KEY == '' ? false : true
+      }
+    ],
+    [
+      'SSH_KEY',
+      () => {
+        // 预留其他校验
+        return config.SSH_KEY == '' ? false : true
+      }
+    ]
   ])
   if (Object.keys(config).length === 0) {
     errorLog('配置文件为空， 请检查配置文件')
     process.exit(1)
   } else {
-    Object.keys(config).forEach((key) => {
+    Object.keys(config).forEach(key => {
       let result = errors.get(key) ? errors.get(key)() : true
       if (!result) {
         errorLog(`配置文件中配置项${key}设置异常，请检查配置文件`)
@@ -139,7 +154,6 @@ const checkByConfig = (env, config = {}) => {
       }
     })
   }
-  
 }
 // ********* 发布程序 *********
 const runDeployTask = async () => {
@@ -147,45 +161,47 @@ const runDeployTask = async () => {
   await zipDist()
   await uploadZipBySSH()
   successLog('发布完成!')
-  Notify.showNotify("发布项目", '发布完成!')
+  Notify.showNotify('发布项目', '发布完成!')
   SSH.dispose()
   // exit process
   process.exit(0)
 }
 // ********* 执行交互 *********
-inquirer.prompt([
-  {
-    type: 'list',
-    message: '请选择发布环境',
-    name: 'env',
-    choices: [
-      {
-        name: '测试环境',
-        value: 'development'
-      },
-      {
-        name: 'stage正式环境',
-        value: 'staging'
-      },
-      {
-        name: '正式环境',
-        value: 'production'
-      }
-    ]
-  },
-  {
-    type: 'confirm',
-    message: `是否需要在本地进行备份 ?`,
-    name: 'backup'
-  },
-]).then(answers => {
-  config = CONFIG[answers.env]
-  // 检查配置文件
-  checkByConfig(answers.env, config)
-  // 执行备份
-  if (answers.backup) {
-    Backup.doBackup()
-  }
-  // 发布task
-  runDeployTask()
-})
+inquirer
+  .prompt([
+    {
+      type: 'list',
+      message: '请选择发布环境',
+      name: 'env',
+      choices: [
+        {
+          name: '测试环境',
+          value: 'development'
+        },
+        {
+          name: 'stage正式环境',
+          value: 'staging'
+        },
+        {
+          name: '正式环境',
+          value: 'production'
+        }
+      ]
+    },
+    {
+      type: 'confirm',
+      message: `是否需要在本地进行备份 ?`,
+      name: 'backup'
+    }
+  ])
+  .then(answers => {
+    config = CONFIG[answers.env]
+    // 检查配置文件
+    checkByConfig(answers.env, config)
+    // 执行备份
+    if (answers.backup) {
+      Backup.doBackup()
+    }
+    // 发布task
+    runDeployTask()
+  })
